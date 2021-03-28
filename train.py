@@ -27,7 +27,7 @@ torch.manual_seed(0)
 np.random.seed(0)
 
 #configurations
-BATCH_SIZE = 8
+BATCH_SIZE = 4
 LEARNING_RATE = 1e-4
 VALID_SPLIT = 0.2
 NUM_EPOCHS = 50
@@ -42,8 +42,8 @@ nissl_data = Nissl_Dataset(root_dir='Nissl_Dataset',transforms=None,multiclass=T
 split_size = int(nissl_data.__len__()*VALID_SPLIT)
 Train , Validation = random_split(nissl_data,[nissl_data.__len__()-split_size,split_size])
 
-train_loader = DataLoader(dataset=Train, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
-val_loader = DataLoader(dataset=Validation, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
+train_loader = DataLoader(dataset=Train, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
+val_loader = DataLoader(dataset=Validation, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
 
 
 #LOSS FUNCTIONS
@@ -90,7 +90,7 @@ def train_model(
     best_loss = 1e10
     
     for epoch in range(num_epochs):
-        scheduler.step()
+        
         #training phase
         avg_loss=0
         pixel_acc=0
@@ -101,11 +101,11 @@ def train_model(
         model.train()
         with tqdm(train_loader) as tdm:
             for index,data_en in enumerate(tdm):
-                tdm.set_description(f'Epoch :{epoch}/{num_epochs}, Lr : {scheduler.get_lr()} Training -')
+                tdm.set_description(f'Epoch :{epoch}/{num_epochs}, Lr : {scheduler.get_last_lr()} Training -')
                 tdm.set_postfix(
                     loss=round(avg_loss,3),
                     pixel_acc=round(pixel_acc,3),
-                    dice_coef=round(dice_coef,3),
+                    dice_coef=dice_coef,
                     IoU_cell_123 = (round(IoU_cell1,3),round(IoU_cell2,3),round(IoU_cell3,3))
                     )
                 inputs,masks = data_en
@@ -133,6 +133,7 @@ def train_model(
 
                 loss = loss.backward()
                 optimizer.step()
+                scheduler.step()
                 
                 
         with torch.no_grad():

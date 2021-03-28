@@ -36,7 +36,7 @@ dice_loss = DiceLoss()
 #accuracy metrics
 def dice_metric(inputs, target,from_logits=True):
     if from_logits:
-        torch.nn.functional.sigmoid(inputs)
+        torch.sigmoid(inputs)
     #target should be one-hot encoding
     intersection = 2.0 * (target * inputs).sum()
     union = target.sum() + inputs.sum()
@@ -68,8 +68,8 @@ def IoU(inputs,targets,cell=None,from_logits=True):
     elif cell==3:
         inputs = inputs[:,3,:,:]
         targets = targets[:,3,:,:]
-        
-    inputs = inputs.view(-1).numpy()
+    
+    inputs = inputs.reshape(-1).numpy()
     targets = targets.view(-1).numpy()
     inputs = (inputs>0.5).astype(np.uint8)
     intersection = (inputs&targets).sum()
