@@ -214,7 +214,6 @@ except:
 #testing a sample
 with torch.no_grad():
   inputs,masks = next(iter(val_loader))
-  print(inputs.shape,masks.shape)
   inputs = inputs.numpy()[0]
   masks = masks.numpy()[0]
   input_org = inputs
@@ -226,7 +225,6 @@ with torch.no_grad():
   targets = targets.type(torch.long)
   #onehot encoding with [batchsize, num_classes, Width , Height]
   onehot_masks = torch.nn.functional.one_hot(targets)
-  print(onehot_masks.shape)
   onehot_masks = onehot_masks.permute(0,3,1,2).to(device)
                   
   #optimizer.zero_grad()
