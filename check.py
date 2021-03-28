@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from loss_functions import DiceLoss
 
+'''
 dataset = Nissl_Dataset(root_dir='Nissl_Dataset',multiclass=True)
 
 img,mask = next(iter(dataset))
@@ -31,7 +32,7 @@ CrossEntropy_loss = torch.nn.CrossEntropyLoss()
 #dice loss
 dice_loss = DiceLoss()
 
-
+'''
 #accuracy metrics
 def dice_metric(inputs, target,from_logits=True):
     if from_logits:
@@ -46,7 +47,7 @@ def dice_metric(inputs, target,from_logits=True):
 
 def pixel_accuracy(inputs,targets,from_logits=True):
     if from_logits:
-        softmax = nn.Softmax(dim=1)
+        softmax = torch.nn.Softmax(dim=1)
         inputs = softmax(inputs)
     inputs = inputs.view(-1).numpy()
     targets = targets.view(-1).numpy()
@@ -66,10 +67,15 @@ def IoU(inputs,targets,cell=None,from_logits=True):
     elif cell==3:
         inputs = inputs[:,3,:,:]
         targets = targets[:,3,:,:]
+        
+    inputs = inputs.view(-1).numpy()
+    targets = targets.view(-1).numpy()
+    
     intersection = 1.0 * (target * inputs).sum()
-    union = target.sum() + inputs.sum()
+    #union = target.sum() + inputs.sum()
+    union = (inputs|targets).sum()
     if target.sum() == 0 and inputs.sum() == 0:
         return 1.0    
-    return (inputs==targets).sum()/targets.shape[0]
+    return intersection/union
 
         
