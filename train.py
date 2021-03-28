@@ -174,7 +174,18 @@ def train_model(
     return model
 
 
-final_model = train_model()
+final_model = train_model(
+        model=model,
+        num_epochs=NUM_EPOCHS,
+        lr=LEARNING_RATE,
+        scheduler=scheduler,
+        train_loader=train_loader,
+        val_loader = val_loader,
+        criteria = CrossEntropy_loss,
+        optimizer=optimizer,
+        device=device
+    
+    )
 model_path = "/content/nissl_project_cs19m036/trained_models/unet.pt"
 
 print('Training completed , saving model weights to {model_path}')
