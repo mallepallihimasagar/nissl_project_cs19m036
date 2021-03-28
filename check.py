@@ -49,6 +49,7 @@ def pixel_accuracy(inputs,targets,from_logits=True):
     if from_logits:
         softmax = torch.nn.Softmax(dim=1)
         inputs = softmax(inputs)
+        inputs = torch.argmax(inputs,dim=1)
     inputs = inputs.view(-1).numpy()
     targets = targets.view(-1).numpy()
     
@@ -56,7 +57,7 @@ def pixel_accuracy(inputs,targets,from_logits=True):
 
 def IoU(inputs,targets,cell=None,from_logits=True):
     if from_logits:
-        torch.nn.functional.sigmoid(inputs)
+        torch.sigmoid(inputs)
      #target should be one-hot encoding
     if cell==1:
         inputs = inputs[:,1,:,:]
@@ -70,11 +71,11 @@ def IoU(inputs,targets,cell=None,from_logits=True):
         
     inputs = inputs.view(-1).numpy()
     targets = targets.view(-1).numpy()
-    
-    intersection = 1.0 * (target * inputs).sum()
+    inputs = (inputs>0.5).astype(np.uint8)
+    intersection = (inputs&targets).sum()
     #union = target.sum() + inputs.sum()
     union = (inputs|targets).sum()
-    if target.sum() == 0 and inputs.sum() == 0:
+    if targets.sum() == 0 and inputs.sum() == 0:
         return 1.0    
     return intersection/union
 

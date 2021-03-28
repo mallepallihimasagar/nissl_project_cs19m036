@@ -18,6 +18,7 @@ from Nissl_Dataset import Nissl_Dataset
 from models import U_Net
 from models import ResAttU_Net
 from tqdm import tqdm
+from loss_functions import DiceLoss
 
 from check import pixel_accuracy,IoU,dice_metric
 
@@ -26,7 +27,7 @@ torch.manual_seed(0)
 np.random.seed(0)
 
 #configurations
-BATCH_SIZE = 1
+BATCH_SIZE = 8
 LEARNING_RATE = 1e-4
 VALID_SPLIT = 0.2
 NUM_EPOCHS = 50
@@ -81,7 +82,7 @@ def train_model(
         scheduler=None,
         train_loader=train_loader,
         val_loader = val_loader,
-        criteria = criteria,
+        criteria = None,
         optimizer=optimizer,
         device=device):
     
@@ -99,33 +100,39 @@ def train_model(
         IoU_cell3=0
         model.train()
         with tqdm(train_loader) as tdm:
-            for index,inputs,masks in enumerate(tdm):
+            for index,data_en in enumerate(tdm):
                 tdm.set_description(f'Epoch :{epoch}/{num_epochs}, Lr : {scheduler.get_lr()} Training -')
                 tdm.set_postfix(
-                    loss=avg_loss,
-                    pixel_acc=pixel_acc,
-                    dice_coef=dice_coef,
-                    IoU_cell_123 = (IoU_cell1,IoU_cell2,IoU_cell3)
+                    loss=round(avg_loss,3),
+                    pixel_acc=round(pixel_acc,3),
+                    dice_coef=round(dice_coef,3),
+                    IoU_cell_123 = (round(IoU_cell1,3),round(IoU_cell2,3),round(IoU_cell3,3))
                     )
-                
+                inputs,masks = data_en
+                inputs = inputs.numpy()
+                masks = masks.numpy()
                 inputs = torch.from_numpy(inputs/255).permute(0,3,1,2).to(device)
-                targets = torch.from_numyp(masks).to(torch.long).to(device)
+                targets = torch.from_numpy(masks).to(torch.long).to(device)
+                inputs = inputs.type(torch.float)
+                targets = targets.type(torch.long)
                 #onehot encoding with [batchsize, num_classes, Width , Height]
-                onehot_masks = torch.nn.functional.one_hot(target).permute(0,3,1,2).to(device)
+                onehot_masks = torch.nn.functional.one_hot(targets).permute(0,3,1,2).to(device)
                 
                 optimizer.zero_grad()
                 outputs = model(inputs)
                 loss = criteria(outputs,targets)
-                loss = loss.backward()
-                optimizer.step()
+                
                 
                 #calculate metrics
                 avg_loss = (avg_loss*index+loss.item())/(index+1)
-                pixel_acc = (pixel_acc*index+pixel_accuracy(outputs.cpu(),targets.cpu()))/(index+1)
-                dice_coef = (dice_coef*index+dice_metric(outputs.cpu(),onehot_masks.cpu()))/(index+1)
-                IoU_cell1 = (IoU_cell1*index+IoU(outputs.cpu(),onehot_masks.cpu(),cell=1))/(index+1)
-                IoU_cell2 = (IoU_cell2*index+IoU(outputs.cpu(),onehot_masks.cpu(),cell=2))/(index+1)
-                IoU_cell3 = (IoU_cell3*index+IoU(outputs.cpu(),onehot_masks.cpu(),cell=3))/(index+1)
+                pixel_acc = (pixel_acc*index+pixel_accuracy(outputs.detach().cpu(),targets.detach().cpu()))/(index+1)
+                dice_coef = (dice_coef*index+dice_metric(outputs.detach().cpu(),onehot_masks.detach().cpu()))/(index+1)
+                IoU_cell1 = (IoU_cell1*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=1))/(index+1)
+                IoU_cell2 = (IoU_cell2*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=2))/(index+1)
+                IoU_cell3 = (IoU_cell3*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=3))/(index+1)
+
+                loss = loss.backward()
+                optimizer.step()
                 
                 
         with torch.no_grad():
@@ -159,11 +166,11 @@ def train_model(
                     
                     #calculate metrics
                     avg_loss = (avg_loss*index+loss.item())/(index+1)
-                    pixel_acc = (pixel_acc*index+pixel_accuracy(outputs.cpu(),targets.cpu()))/(index+1)
-                    dice_coef = (dice_coef*index+dice_metric(outputs.cpu(),onehot_masks.cpu()))/(index+1)
-                    IoU_cell1 = (IoU_cell1*index+IoU(outputs.cpu(),onehot_masks.cpu(),cell=1))/(index+1)
-                    IoU_cell2 = (IoU_cell2*index+IoU(outputs.cpu(),onehot_masks.cpu(),cell=2))/(index+1)
-                    IoU_cell3 = (IoU_cell3*index+IoU(outputs.cpu(),onehot_masks.cpu(),cell=3))/(index+1)
+                    pixel_acc = (pixel_acc*index+pixel_accuracy(outputs.detach().cpu(),targets.detach().cpu()))/(index+1)
+                    dice_coef = (dice_coef*index+dice_metric(outputs.detach().cpu(),onehot_masks.detach().cpu()))/(index+1)
+                    IoU_cell1 = (IoU_cell1*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=1))/(index+1)
+                    IoU_cell2 = (IoU_cell2*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=2))/(index+1)
+                    IoU_cell3 = (IoU_cell3*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=3))/(index+1)
                     
         if avg_loss_loss < best_loss:
             print("saving best model")
@@ -183,9 +190,7 @@ final_model = train_model(
         val_loader = val_loader,
         criteria = CrossEntropy_loss,
         optimizer=optimizer,
-        device=device
-    
-    )
+        device=device)
 model_path = "/content/nissl_project_cs19m036/trained_models/unet.pt"
 
 print('Training completed , saving model weights to {model_path}')
