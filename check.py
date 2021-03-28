@@ -34,13 +34,16 @@ dice_loss = DiceLoss()
 
 '''
 #accuracy metrics
-def dice_metric(inputs, target,from_logits=True):
+def dice_metric(inputs, targets,from_logits=True):
     if from_logits:
         torch.sigmoid(inputs)
     #target should be one-hot encoding
-    intersection = 2.0 * (target * inputs).sum()
-    union = target.sum() + inputs.sum()
-    if target.sum() == 0 and inputs.sum() == 0:
+    inputs = inputs.reshape(-1).numpy()
+    targets = targets.reshape(-1).numpy()
+    inputs = (inputs>0.5).astype(np.uint8)
+    intersection = 2.0 * (targets * inputs).sum()
+    union = targets.sum() + inputs.sum()
+    if targets.sum() == 0 and inputs.sum() == 0:
         return 1.0
 
     return intersection / union
