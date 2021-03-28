@@ -38,8 +38,8 @@ OUTPUT_CHANNELS=4
 #loding dataset
 
 nissl_data = Nissl_Dataset(root_dir='Nissl_Dataset',transforms=None,multiclass=True)
-
-Train , Validation = random_split(nissl_data,[nissl_data.__len__()*(1-VALID_SPLIT),VALID_SPLIT])
+split_size = int(nissl_data.__len__()*VALID_SPLIT)
+Train , Validation = random_split(nissl_data,[nissl_data.__len__()-split_size,split_size])
 
 train_loader = DataLoader(dataset=Train, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 val_loader = DataLoader(dataset=Validation, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
