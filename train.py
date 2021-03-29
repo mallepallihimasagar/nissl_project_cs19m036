@@ -72,7 +72,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 # step_size = 2, after every 2 epoch, new_lr = lr*gamma 
 
 # gamma = decaying factor
-scheduler = StepLR(optimizer, step_size=40, gamma=0.1)
+scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
 
 def train_model(
         model=model,
