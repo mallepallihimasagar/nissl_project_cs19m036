@@ -15,7 +15,7 @@ Height=512
 Width = 512
 
 class Nissl_Dataset(Dataset):
-    def __init__(self,root_dir='Nissl_Dataset',transforms=None,multiclass=True,cell_number=0):
+    def __init__(self,root_dir='Nissl_Dataset/train',transforms=None,multiclass=True,cell_number=0):
         self.root_dir = root_dir
         self.transforms = transforms
         self.multiclass = multiclass

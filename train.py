@@ -37,12 +37,13 @@ OUTPUT_CHANNELS=4
 
 #loding dataset
 
-nissl_data = Nissl_Dataset(root_dir='Nissl_Dataset',transforms=None,multiclass=True)
-split_size = int(nissl_data.__len__()*VALID_SPLIT)
-Train , Validation = random_split(nissl_data,[nissl_data.__len__()-split_size,split_size])
+nissl_data_train = Nissl_Dataset(root_dir='Nissl_Dataset/train',transforms=None,multiclass=True)
+nissl_data_test = Nissl_Dataset(root_dir='Nissl_Dataset/test',transforms=None,multiclass=True)
+#split_size = int(nissl_data.__len__()*VALID_SPLIT)
+#Train , Validation = random_split(nissl_data,[nissl_data.__len__()-split_size,split_size])
 
-train_loader = DataLoader(dataset=Train, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
-val_loader = DataLoader(dataset=Validation, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
+train_loader = DataLoader(dataset=nissl_data_train, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
+val_loader = DataLoader(dataset=nissl_data_test, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
 
 
 #LOSS FUNCTIONS
