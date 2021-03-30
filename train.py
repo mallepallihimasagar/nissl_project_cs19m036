@@ -26,9 +26,9 @@ torch.manual_seed(0)
 np.random.seed(0)
 
 #configurations
-BATCH_SIZE = 4
+BATCH_SIZE = 6
 LEARNING_RATE = 1e-4
-VALID_SPLIT = 0.2
+VALID_SPLIT = 0.1
 NUM_EPOCHS = 200
 PATIENCE = 15
 ALPHA = 0.5
@@ -39,12 +39,12 @@ OUTPUT_CHANNELS=4
 
 nissl_data_train = Nissl_Dataset(root_dir='Nissl_Dataset/train',transforms=None,multiclass=True)
 nissl_data_test = Nissl_Dataset(root_dir='Nissl_Dataset/test',transforms=None,multiclass=True)
-#split_size = int(nissl_data.__len__()*VALID_SPLIT)
-#Train , Validation = random_split(nissl_data,[nissl_data.__len__()-split_size,split_size])
+split_size = int(nissl_data_train.__len__()*VALID_SPLIT)
+Train , Validation = random_split(nissl_data_train,[nissl_data_train.__len__()-split_size,split_size])
 
-train_loader = DataLoader(dataset=nissl_data_train, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
-val_loader = DataLoader(dataset=nissl_data_test, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
-
+train_loader = DataLoader(dataset=Train, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
+val_loader = DataLoader(dataset=Validation, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
+test_loader = DataLoader(dataset=nissl_data_test, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
 
 #LOSS FUNCTIONS
 
@@ -74,7 +74,47 @@ optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
 # gamma = decaying factor
 scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
-
+def test_results(criteria,model,test_loader,epoch,num_epochs,scheduler):
+  with torch.no_grad():
+    model.eval()
+    
+    avg_loss=0
+    pixel_acc=0
+    dice_coef=0
+    IoU_cell1=0
+    IoU_cell2=0
+    IoU_cell3=0
+    with tqdm(test_loader) as tdm:
+        for index,data_en in enumerate(tdm):
+            tdm.set_description(f'Epoch :{epoch}/{num_epochs}, Lr : {scheduler.get_last_lr()} Testing -')
+            tdm.set_postfix(
+                loss=round(avg_loss,3),
+                pixel_acc=round(pixel_acc,3),
+                dice_coef=dice_coef,
+                IoU_cell_123 = (round(IoU_cell1,3),round(IoU_cell2,3),round(IoU_cell3,3))
+                )
+            inputs,masks = data_en
+            inputs = inputs.numpy()
+            masks = masks.numpy()
+            inputs = torch.from_numpy(inputs/255).permute(0,3,1,2).to(device)
+            targets = torch.from_numpy(masks).to(torch.long).to(device)
+            inputs = inputs.type(torch.float)
+            targets = targets.type(torch.long)
+            #onehot encoding with [batchsize, num_classes, Width , Height]
+            onehot_masks = torch.nn.functional.one_hot(targets).permute(0,3,1,2).to(device)
+            
+            
+            outputs = model(inputs)
+            loss = criteria(outputs,targets)
+            
+            
+            #calculate metrics
+            avg_loss = (avg_loss*index+loss.item())/(index+1)
+            pixel_acc = (pixel_acc*index+pixel_accuracy(outputs.detach().cpu(),targets.detach().cpu()))/(index+1)
+            dice_coef = (dice_coef*index+dice_metric(outputs.detach().cpu(),onehot_masks.detach().cpu())).item()/(index+1)
+            IoU_cell1 = (IoU_cell1*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=1))/(index+1)
+            IoU_cell2 = (IoU_cell2*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=2))/(index+1)
+            IoU_cell3 = (IoU_cell3*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=3))/(index+1)
 def train_model(
         model=model,
         num_epochs=NUM_EPOCHS,
@@ -82,6 +122,7 @@ def train_model(
         scheduler=None,
         train_loader=train_loader,
         val_loader = val_loader,
+        test_loader = test_loader,
         criteria = None,
         optimizer=optimizer,
         device=device):
@@ -116,6 +157,7 @@ def train_model(
                 inputs = inputs.type(torch.float)
                 targets = targets.type(torch.long)
                 #onehot encoding with [batchsize, num_classes, Width , Height]
+                #print(torch.nn.functional.one_hot(targets).shape)
                 onehot_masks = torch.nn.functional.one_hot(targets).permute(0,3,1,2).to(device)
                 
                 optimizer.zero_grad()
@@ -147,7 +189,7 @@ def train_model(
             IoU_cell3=0
             with tqdm(val_loader) as tdm:
                 for index,data_en in enumerate(tdm):
-                    tdm.set_description(f'Epoch :{epoch}/{num_epochs}, Lr : {scheduler.get_last_lr()} Training -')
+                    tdm.set_description(f'Epoch :{epoch}/{num_epochs}, Lr : {scheduler.get_last_lr()} validating -')
                     tdm.set_postfix(
                         loss=round(avg_loss,3),
                         pixel_acc=round(pixel_acc,3),
@@ -176,7 +218,7 @@ def train_model(
                     IoU_cell1 = (IoU_cell1*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=1))/(index+1)
                     IoU_cell2 = (IoU_cell2*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=2))/(index+1)
                     IoU_cell3 = (IoU_cell3*index+IoU(outputs.detach().cpu(),onehot_masks.detach().cpu(),cell=3))/(index+1)
-                    
+        test_results(criteria,model,test_loader,epoch,num_epochs,scheduler)            
         if avg_loss < best_loss:
             print("saving best model")
             best_loss = avg_loss
@@ -199,11 +241,12 @@ final_model = train_model(
         scheduler=scheduler,
         train_loader=train_loader,
         val_loader = val_loader,
+        test_loader = test_loader,
         criteria = CrossEntropy_loss,
         optimizer=optimizer,
         device=device)
-model_path = "/content/nissl_project_cs19m036/trained_models/unet_CEloss_unweighted.pt"
-
+#model_path = "/content/nissl_project_cs19m036/trained_models/unet_CEloss_unweighted.pt"
+model_path = "/gdrive/MyDrive/trained_models/unet_CEloss_unweighted.pt"
 print(f'Training completed , saving model weights to {model_path}')
 try:
     torch.save(model.state_dict(), model_path)

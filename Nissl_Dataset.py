@@ -1,11 +1,15 @@
 import torch
 import torchvision.transforms as transforms  # Transformations we can perform on our dataset
+import torchvision.transforms.functional as TF
 import os
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset,DataLoader
 from skimage import io
+import random
+
+random.seed(0)
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -23,7 +27,21 @@ class Nissl_Dataset(Dataset):
 
     def __len__(self):
         return len(os.listdir(self.root_dir))
+    def transform(self, image, mask):
+        # Random horizontal flipping
+        if random.random() > 0.5:
+            image = cv2.flip(image,1)
+            mask = cv2.flip(mask,1)
 
+        # Random vertical flipping
+        if random.random() > 0.5:
+            image = cv2.flip(image,0)
+            mask = cv2.flip(mask,0)
+
+        # Transform to tensor
+        image = TF.to_tensor(image)
+        mask = TF.to_tensor(mask)
+        return image, mask
     def __getitem__(self,item):
         if torch.is_tensor(item):
             item = item.tolist()
@@ -58,7 +76,8 @@ class Nissl_Dataset(Dataset):
                 foreground[cell3_mask==255]=1
 
         if self.transforms:
-            input_image = self.transforms(input_image)
-            foreground = self.transforms(foreground)
+            # input_image = self.transforms(input_image)
+            # foreground = self.transforms(foreground)
+            input_image,foreground=self.transform(input_image,foreground)
 
         return input_image,foreground
